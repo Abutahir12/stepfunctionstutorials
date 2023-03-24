@@ -1,0 +1,61 @@
+service: stepfunctions-serverless-framework
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+
+plugins:
+  - serverless-step-functions
+
+functions:
+  firstFunction:
+    handler: index.firstFunction
+  secondFunction:
+    handler: index.secondFunction  
+
+stepFunctions:
+  stateMachines:
+    helloworldMachine:
+      events:
+        - http:
+            path: /testing
+            method: POST
+            cors: true
+      name: myFirstStateMachine
+      definition:
+        Comment: "This is my first step functions state machine"
+        StartAt: InitialState
+        States:
+          InitialState:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [firstFunction, Arn]
+            Next: mapped_task  
+          mapped_task:
+            Comment: "This state will be handling the payout of each event"
+            Type: Map
+            ItemProcessor:
+              ProcessorConfig:
+                Mode: DISTRIBUTED
+                ExecutionType: STANDARD
+              StartAt: FirstMapTask
+              States:
+                FirstMapTask:
+                  Type: Task
+                  Resource:
+                    Fn::GetAtt: [secondFunction, Arn]
+                  End: true
+            InputPath: "$"
+            Label: "Processabledata"
+            MaxConcurrency: 40
+            ItemReader:
+              Resource: "arn:aws:states:::s3:getObject"
+              ReaderConfig:
+                InputType: CSV
+                CSVHeaderLocation: FIRST_ROW
+              Parameters:
+                Bucket.$: "$.bucket_name"
+                Key.$: "$.processable_key_name"
+            ToleratedFailurePercentage: 100
+            End: true
