@@ -5,6 +5,7 @@ module.exports.firstFunction = async (event) => {
 
 module.exports.secondFunction = async (event) => {
   event.secondFunctionData = "This data has entered second function"
+  print(event)
   return {
     statusCode: 200,
     body: JSON.stringify(event),
